@@ -12,7 +12,7 @@ st.set_page_config(page_title="FutureScore PRO", layout="wide", page_icon="🐄"
 @st.cache_resource
 def load_ai_assets():
     model_path = 'models/futurescore_model_pro.pkl'
-    artifacts_path = 'models/data_pipeline_artifacts_pro.pkl' # Исправил название!
+    artifacts_path = 'models/data_pipeline_artifacts_pro (1).pkl' 
     
     if os.path.exists(model_path) and os.path.exists(artifacts_path):
         try:
