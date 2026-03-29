@@ -5,6 +5,15 @@ import pickle
 import os
 import plotly.express as px
 
+import os
+st.sidebar.write("### 🔍 Проверка файлов:")
+st.sidebar.write("Текущая папка:", os.getcwd())
+if os.path.exists('models'):
+    st.sidebar.write("✅ Папка 'models' найдена!")
+    st.sidebar.write("Файлы в ней:", os.listdir('models'))
+else:
+    st.sidebar.error("❌ Папка 'models' НЕ найдена!")
+
 # Настройка страницы
 st.set_page_config(page_title="FutureScore PRO", layout="wide", page_icon="🐄")
 
