@@ -15,7 +15,7 @@ def load_ai_brains():
     # Просто читаем файлы из папки models
     with open('models/data_pipeline_artifacts_pro.pkl', 'rb') as f:
         data_arts = pickle.load(f)
-    with open('models/futurescore_model_pro.pkl', 'rb') as f:
+    with open('futurescore_model_pro.pkl', 'rb') as f:
         model_arts = pickle.load(f)
     return data_arts, model_arts
 
