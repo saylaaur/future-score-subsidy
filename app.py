@@ -11,7 +11,7 @@ st.set_page_config(page_title="FutureScore | МСХ РК", page_icon="🌾", lay
 
 # --- 2. ПУТИ К ФАЙЛАМ ---
 # Указываем, что файл ТОЧНО лежит в папке data
-DATA_PATH = os.path.join('data', 'features.csv')
+DATA_PATH = 'features.csv'
 MODEL_PATH = 'futurescore_model_pro.pkl'
 ARTIFACTS_PATH = 'data_pipeline_artifacts_pro.pkl'
 
