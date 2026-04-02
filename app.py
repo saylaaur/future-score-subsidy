@@ -16,7 +16,7 @@ except ImportError:
 st.set_page_config(
     page_title="FutureScore | МСХ РК",
     page_icon="🌾",
-    layout="wide"
+    layout="wide",
 )
 
 # ==========================================
@@ -24,7 +24,7 @@ st.set_page_config(
 # ==========================================
 DATA_PATH = "final_dataset_pro.csv"
 YOLO_MODEL_PATH = "yolov8n.pt"
-LOCAL_EMBLEM_PATH = "gerb.png"  # если захочешь использовать локальную картинку
+LOCAL_EMBLEM_PATH = "gerb.png"
 
 
 # ==========================================
@@ -36,7 +36,7 @@ class LegalExpertEngine:
         self.MAX_NON_BREEDING = 300
         self.AUDIT_THRESHOLD = 1000
 
-    def check_compliance(self, farmer_data):
+    def check_compliance(self, farmer_data: dict) -> dict:
         declared_heads = int(farmer_data.get("Поголовье", 0))
         is_breeding = int(farmer_data.get("is_breeding", 0))
         is_selection = int(farmer_data.get("is_selection", 0))
@@ -80,7 +80,7 @@ class LegalExpertEngine:
         return {
             "status": status,
             "penalty": penalty,
-            "details": reasons
+            "details": reasons,
         }
 
 
@@ -88,41 +88,42 @@ legal_expert = LegalExpertEngine()
 
 
 # ==========================================
-# 3. ЗАГРУЗКА ДАННЫХ И МОДЕЛИ
+# 3. ЗАГРУЗКА ДАННЫХ И МОДЕЛЕЙ
 # ==========================================
 @st.cache_resource
 def load_yolo_model():
     if not YOLO_AVAILABLE:
         return None
 
-    if os.path.exists(YOLO_MODEL_PATH):
-        try:
-            return YOLO(YOLO_MODEL_PATH)
-        except Exception as e:
-            st.error(f"Ошибка загрузки YOLO модели: {e}")
-            return None
+    if not os.path.exists(YOLO_MODEL_PATH):
+        return None
 
-    return None
+    try:
+        return YOLO(YOLO_MODEL_PATH)
+    except Exception as e:
+        st.error(f"Ошибка загрузки YOLO модели: {e}")
+        return None
 
 
 @st.cache_data
-def load_data():
-    # Демо-режим, если CSV не найден
+def load_data() -> pd.DataFrame:
     if not os.path.exists(DATA_PATH):
         st.warning(
             f"Файл '{DATA_PATH}' не найден. Включен демо-режим с тестовыми данными."
         )
-        return pd.DataFrame({
-            "Фермер": ["КХ Демо-Болашак", "ИП Демо-Береке", "ТОО Демо-Агро"],
-            "region": ["Акмолинская", "Туркестанская", "СКО"],
-            "Поголовье": [240, 45, 1200],
-            "Сумма": [3600000, 675000, 18000000],
-            "FutureScore": [85, 30, 65],
-            "is_breeding": [1, 0, 1],
-            "is_selection": [1, 0, 1],
-            "district_historical_score": [0.9, 0.4, 0.8],
-            "climate_risk": [0.3, 0.8, 0.4]
-        })
+        return pd.DataFrame(
+            {
+                "Фермер": ["КХ Демо-Болашак", "ИП Демо-Береке", "ТОО Демо-Агро"],
+                "region": ["Акмолинская", "Туркестанская", "СКО"],
+                "Поголовье": [240, 45, 1200],
+                "Сумма": [3600000, 675000, 18000000],
+                "FutureScore": [85, 30, 65],
+                "is_breeding": [1, 0, 1],
+                "is_selection": [1, 0, 1],
+                "district_historical_score": [0.9, 0.4, 0.8],
+                "climate_risk": [0.3, 0.8, 0.4],
+            }
+        )
 
     try:
         df = pd.read_csv(DATA_PATH)
@@ -162,26 +163,21 @@ def load_data():
         else:
             df["region"] = "Другой"
 
-    # Норматив
     if "Норматив" not in df.columns:
         df["Норматив"] = 15000
 
-    # Поголовье
     if "Поголовье" not in df.columns:
         if "amount_to_norm_ratio" in df.columns:
             df["Поголовье"] = df["amount_to_norm_ratio"].fillna(100).astype(int)
         else:
             df["Поголовье"] = 100
 
-    # Сумма
     if "Сумма" not in df.columns:
         df["Сумма"] = df["Поголовье"] * df["Норматив"]
 
-    # Фермер
     if "Фермер" not in df.columns:
         df["Фермер"] = [f"КХ Агро-Заявка #{int(i * 7 + 1000)}" for i in range(len(df))]
 
-    # Поля для расчета, если отсутствуют
     if "is_breeding" not in df.columns:
         df["is_breeding"] = 0
 
@@ -197,8 +193,7 @@ def load_data():
     return df
 
 
-def calculate_ai_score(row):
-    # Если уже есть готовый FutureScore
+def calculate_ai_score(row: pd.Series) -> int:
     if "FutureScore" in row and pd.notna(row["FutureScore"]):
         return int(row["FutureScore"])
 
@@ -222,7 +217,6 @@ if not raw_df.empty and "FutureScore" not in raw_df.columns:
 # 4. SIDEBAR
 # ==========================================
 with st.sidebar:
-    # Лучше локальная картинка, если есть
     if os.path.exists(LOCAL_EMBLEM_PATH):
         st.image(LOCAL_EMBLEM_PATH, width=80)
 
@@ -242,7 +236,7 @@ with st.sidebar:
         if not filtered_df.empty:
             selected_farmer_name = st.selectbox(
                 "👨‍🌾 Выбрать фермера:",
-                filtered_df["Фермер"].astype(str).tolist()
+                filtered_df["Фермер"].astype(str).tolist(),
             )
             farmer_rows = filtered_df[filtered_df["Фермер"] == selected_farmer_name]
             farmer_data = farmer_rows.iloc[0].to_dict() if not farmer_rows.empty else {}
@@ -266,13 +260,14 @@ st.title("🌾 FutureScore: Анализ заявок на субсидии")
 if filtered_df.empty:
     st.stop()
 
-tab1, tab2, tab3, tab4 = st.tabs([
-    "📊 Рейтинг заявок",
-    "🔍 Расшифровка балла (SHAP)",
-    "⚖️ Legal AI",
-    "📸 Computer Vision"
-])
-
+tab1, tab2, tab3, tab4 = st.tabs(
+    [
+        "📊 Рейтинг заявок",
+        "🔍 Расшифровка балла (SHAP)",
+        "⚖️ Legal AI",
+        "📸 Computer Vision",
+    ]
+)
 
 # ==========================================
 # TAB 1
@@ -296,16 +291,13 @@ with tab1:
             "Сумма": st.column_config.NumberColumn("Запрошено (₸)", format="%d ₸"),
             "Поголовье": st.column_config.NumberColumn("Заявлено голов", format="%d шт"),
             "FutureScore": st.column_config.ProgressColumn(
-                "Рейтинг AI",
-                format="%d",
-                min_value=0,
-                max_value=100
-            )
+                "Рейтинг AI", format="%d", min_value=0, max_value=100
+            ),
         },
         hide_index=True,
-        height=400
+        height=400,
+        use_container_width=True,
     )
-
 
 # ==========================================
 # TAB 2
@@ -325,24 +317,32 @@ with tab2:
             breed_bonus = 15 if int(farmer_data.get("is_breeding", 0)) == 1 else 0
             sel_bonus = 10 if int(farmer_data.get("is_selection", 0)) == 1 else 0
 
-            fig = go.Figure(go.Waterfall(
-                orientation="v",
-                measure=["absolute", "relative", "relative", "relative", "total"],
-                x=["База района", "Климат. риск", "Племенной статус", "Селекция", "Итоговый Score"],
-                y=[base_score, climate_penalty, breed_bonus, sel_bonus, score],
-                text=[
-                    str(base_score),
-                    str(climate_penalty),
-                    f"+{breed_bonus}",
-                    f"+{sel_bonus}",
-                    str(score)
-                ],
-                textposition="outside",
-                connector={"line": {"color": "#444"}},
-                increasing={"marker": {"color": "#2ecc71"}},
-                decreasing={"marker": {"color": "#e74c3c"}},
-                totals={"marker": {"color": "#3498db"}}
-            ))
+            fig = go.Figure(
+                go.Waterfall(
+                    orientation="v",
+                    measure=["absolute", "relative", "relative", "relative", "total"],
+                    x=[
+                        "База района",
+                        "Климат. риск",
+                        "Племенной статус",
+                        "Селекция",
+                        "Итоговый Score",
+                    ],
+                    y=[base_score, climate_penalty, breed_bonus, sel_bonus, score],
+                    text=[
+                        str(base_score),
+                        str(climate_penalty),
+                        f"+{breed_bonus}",
+                        f"+{sel_bonus}",
+                        str(score),
+                    ],
+                    textposition="outside",
+                    connector={"line": {"color": "#444"}},
+                    increasing={"marker": {"color": "#2ecc71"}},
+                    decreasing={"marker": {"color": "#e74c3c"}},
+                    totals={"marker": {"color": "#3498db"}},
+                )
+            )
             fig.update_layout(height=400, margin=dict(t=20, b=20))
             st.plotly_chart(fig, use_container_width=True)
 
@@ -357,7 +357,6 @@ with tab2:
                 st.error("❌ **Критический риск.** Отклонить заявку.")
     else:
         st.info("Нет данных по выбранному фермеру.")
-
 
 # ==========================================
 # TAB 3
@@ -382,7 +381,6 @@ with tab3:
                 st.success(f"✅ {detail}")
     else:
         st.info("👈 Загрузите Приказ №108 (PDF) в панели слева для активации AI-Юриста.")
-
 
 # ==========================================
 # TAB 4
@@ -409,12 +407,17 @@ with tab4:
 
                     if results and len(results) > 0 and results[0].boxes is not None:
                         detected_count = sum(
-                            1 for box in results[0].boxes
+                            1
+                            for box in results[0].boxes
                             if int(box.cls[0]) in [17, 18, 19]
                         )
 
                     res_img = results[0].plot()
-                    st.image(res_img, caption="Результат детекции", use_container_width=True)
+                    st.image(
+                        res_img,
+                        caption="Результат детекции",
+                        use_container_width=True,
+                    )
 
             except Exception as e:
                 st.error(f"Ошибка обработки изображения: {e}")
