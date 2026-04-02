@@ -3,7 +3,8 @@ pandas
 numpy
 joblib
 plotly
+xgboost
+scikit-learn
 ultralytics
 opencv-python-headless
 Pillow
-PyPDF2
