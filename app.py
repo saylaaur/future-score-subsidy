@@ -225,7 +225,7 @@ with st.sidebar:
     st.title("Управление МСХ")
 
     if not raw_df.empty:
-        regions = ["Все регионы"] + sorted(raw_df["region"].astype(str).unique().tolist())
+        regions = ["Все регионы"] + sorted(raw_df["Регион"].astype(str).unique().tolist())
         selected_region = st.selectbox("🌍 Фильтр по региону:", regions)
 
         if selected_region != "Все регионы":
