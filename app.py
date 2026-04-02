@@ -9,15 +9,14 @@ import os
 # --- 1. НАСТРОЙКИ СТРАНИЦЫ (ОБЯЗАТЕЛЬНО ПЕРВЫМ) ---
 st.set_page_config(page_title="FutureScore | МСХ РК", page_icon="🌾", layout="wide")
 
-# --- 2. ПУТИ К ФАЙЛАМ (СОГЛАСНО ТВОИМ УКАЗАНИЯМ) ---
+# --- 2. ПУТИ К ФАЙЛАМ ---
 DATA_PATH = os.path.join('data', 'features.csv')
 MODEL_PATH = 'futurescore_model_pro.pkl'
-ARTIFACTS_PATH = 'data_pipeline_artifacts_pro.pkl'
+ARTIFACTS_PATH = 'data_pipeline_artifacts_pro (1).pkl'
 
 # --- 3. БЕЗОПАСНАЯ ЗАГРУЗКА ДАННЫХ И МОДЕЛЕЙ ---
 @st.cache_resource
 def load_ml_assets():
-    """Загрузка модели из корня"""
     try:
         if os.path.exists(MODEL_PATH):
             model = joblib.load(MODEL_PATH)
@@ -28,12 +27,10 @@ def load_ml_assets():
 
 @st.cache_data
 def load_data():
-    """Загрузка данных из папки data/"""
     try:
         if os.path.exists(DATA_PATH):
             df = pd.read_csv(DATA_PATH)
         else:
-            # Если файла нет, создаем заглушку для демо
             df = pd.DataFrame({
                 'Фермер': ['КХ Болашак', 'ИП Береке', 'КХ Нұрлы жол', 'ТОО Агро-Плюс'],
                 'region': ['Акмолинская', 'Туркестанская', 'Алматинская', 'Павлодарская'],
@@ -41,7 +38,6 @@ def load_data():
                 'Сумма': [1500000, 300000, 45000000, 2000000]
             })
         
-        # Гарантируем наличие колонок для логики
         if 'region' not in df.columns: df['region'] = 'Не указано'
         if 'Фермер' not in df.columns: df['Фермер'] = [f"Заявка #{i}" for i in range(len(df))]
         return df
@@ -51,15 +47,11 @@ def load_data():
 model, is_ml_active = load_ml_assets()
 raw_df = load_data()
 
-# --- 4. ЛОГИКА СКОРИНГА (СТАБИЛЬНАЯ) ---
+# --- 4. ЛОГИКА СКОРИНГА ---
 def get_stable_score(row):
-    """Рассчитывает балл, который не меняется при перезагрузке страницы"""
     base = 100
-    # Простая логика на основе данных
     if row.get('Сумма', 0) > 10000000: base -= 35
     if row.get('region') == 'Туркестанская': base -= 10
-    
-    # Хешируем имя фермера, чтобы добавить уникальности, но оставить балл неизменным
     deterministic_variance = hash(str(row['Фермер'])) % 15 - 7
     return max(10, min(99, base + deterministic_variance))
 
@@ -71,26 +63,22 @@ def get_recommendations(score):
     else:
         return "❌ Высокий риск фрода. Отказать.", "Приведите запрашиваемую сумму к нормативу."
 
-# Предварительный расчет баллов
 raw_df['FutureScore'] = raw_df.apply(get_stable_score, axis=1)
 
-# --- 5. САЙДБАР (УПРАВЛЕНИЕ) ---
+# --- 5. САЙДБАР ---
 with st.sidebar:
     st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/e/e4/Emblem_of_Kazakhstan.svg/200px-Emblem_of_Kazakhstan.svg.png", width=80)
     st.title("FutureScore Admin")
     
-    # Фильтр региона
     regions = ["Все регионы"] + sorted(raw_df['region'].unique().tolist())
     selected_region = st.selectbox("🌍 Регион:", regions)
     
-    # Применяем фильтр к копии данных, чтобы не ломать оригинал
     if selected_region != "Все регионы":
         filtered_df = raw_df[raw_df['region'] == selected_region].copy()
     else:
         filtered_df = raw_df.copy()
     
     st.divider()
-    # Выбор фермера для детального анализа
     selected_farmer_name = st.selectbox("👨‍🌾 Выбор фермера:", filtered_df['Фермер'].tolist())
     farmer_data = filtered_df[filtered_df['Фермер'] == selected_farmer_name].iloc[0]
     
@@ -98,12 +86,11 @@ with st.sidebar:
     st.markdown("### ⚖️ База знаний")
     uploaded_pdf = st.file_uploader("Загрузить Приказ №108 (PDF)", type="pdf")
 
-# --- 6. ГЛАВНЫЙ ИНТЕРФЕЙС (ВКЛАДКИ) ---
+# --- 6. ГЛАВНЫЙ ИНТЕРФЕЙС ---
 st.title("🌾 Система скоринга субсидий МСХ РК")
 
 tab1, tab2, tab3, tab4 = st.tabs(["📊 Рейтинг", "🔍 Почему такой балл?", "⚖️ Проверка PDF", "📸 Фото-контроль"])
 
-# TAB 1: ТАБЛИЦА
 with tab1:
     c1, c2, c3 = st.columns(3)
     c1.metric("Заявок в работе", len(filtered_df))
@@ -115,10 +102,9 @@ with tab1:
         filtered_df[['Фермер', 'region', 'Сумма', 'FutureScore']]
         .sort_values('FutureScore', ascending=False)
         .style.background_gradient(subset=['FutureScore'], cmap='RdYlGn'),
-        use_container_width=True
+        width="stretch" # ИСПРАВЛЕНО ЗДЕСЬ
     )
 
-# TAB 2: EXPLAINABILITY (ГЛАВНАЯ ЗАДАЧА)
 with tab2:
     current_score = farmer_data['FutureScore']
     st.header(f"Анализ: {selected_farmer_name}")
@@ -127,9 +113,7 @@ with tab2:
     col_chart, col_adv = st.columns([2, 1])
     
     with col_chart:
-        # Waterfall Chart - Объяснение баллов
         base_val = 60
-        # Имитируем влияние признаков
         impacts = {
             "Базовый уровень": base_val,
             "Продуктивность": 20 if current_score > 70 else -10,
@@ -148,7 +132,7 @@ with tab2:
             totals={"marker":{"color":"#3498db"}}
         ))
         fig.update_layout(title="Как сформировался балл (Explainable AI)", height=400)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch") # ИСПРАВЛЕНО ЗДЕСЬ
 
     with col_adv:
         st.markdown("### 📝 Рекомендации ИИ")
@@ -156,12 +140,11 @@ with tab2:
         st.error(f"**Комиссии:** {comm_rec}")
         st.success(f"**Фермеру:** {farm_rec}")
         
-        if st.button("📄 Сгенерировать отчет"):
+        if st.button("📄 Сгенерировать отчет", width="stretch"): # ИСПРАВЛЕНО ЗДЕСЬ
             st.toast("Отчет формируется...")
             time.sleep(1)
             st.write("Отчет готов для выгрузки в PDF.")
 
-# TAB 3: LEGAL AI
 with tab3:
     st.header("⚖️ Юридический ассистент")
     if uploaded_pdf:
@@ -170,11 +153,10 @@ with tab3:
     else:
         st.warning("Загрузите файл Правил в сайдбаре для активации модуля.")
 
-# TAB 4: COMPUTER VISION
 with tab4:
     st.header("📸 Проверка через Computer Vision")
     img = st.file_uploader("Загрузите фото фермы", type=['jpg', 'png'])
     if img:
         with st.spinner("ИИ сканирует объекты..."): time.sleep(2)
-        st.image(img, width=400)
+        st.image(img, width="stretch") # ИСПРАВЛЕНО ЗДЕСЬ
         st.error("🚨 Внимание: На фото обнаружено только 15 голов скота из 100 заявленных!")
