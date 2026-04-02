@@ -255,15 +255,16 @@ with tab4:
                     
                     # Отрисовка
                     res_img = results[0].plot()
-                    st.image(res_img, caption="Результат детекции")
-                    
-                    st.subheader("📊 Итог проверки:")
-                    st.write(f"📄 Заявлено: **{declared_cows}**")
-                    st.write(f"🐄 Найдено: **{detected_count}**")
-                    
-                    if declared_count > 0:
-                        ratio = detected_count / declared_count
-                        if ratio < 0.3:
-                            st.error(f"🚨 ФРОД! Подтверждено только {int(ratio*100)}% поголовья.")
-                        else:
-                            st.success("✅ Визуальный контроль пройден.")
+                   st.image(res_img, caption="Результат детекции")
+        
+        st.subheader("📊 Итог проверки:")
+        st.write(f"📄 Заявлено: **{declared_cows}**") # Тут используем данные из farmer_data
+        st.write(f"🐄 Найдено: **{detected_count}**") # Тут результат нейросети
+        
+        if detected_count >= 0: # ИСПРАВЛЕНО ЗДЕСЬ
+            if declared_cows > 0: # Проверяем, что в заявке не 0, чтобы не делить на ноль
+                ratio = detected_count / declared_cows
+                if ratio < 0.3:
+                    st.error(f"🚨 ФРОД! Подтверждено только {int(ratio*100)}% поголовья.")
+                else:
+                    st.success("✅ Визуальный контроль пройден.")
