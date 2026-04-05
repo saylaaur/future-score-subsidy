@@ -15,7 +15,7 @@ import streamlit as st
 # ─────────────────────────────────────────────────────────────────────────────
 #  ОБЩИЙ CSV-ФАЙЛ (синхронизация с фермером)
 # ─────────────────────────────────────────────────────────────────────────────
-CSV_PATH = "data/applications.csv"
+CSV_PATH = "features_pro.csv"
 
 def ensure_csv_exists():
     os.makedirs("data", exist_ok=True)
