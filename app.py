@@ -1,255 +1,146 @@
-# =============================================================================
-#  FUTURE-SCORE: ПЛАТФОРМА УМНЫХ СУБСИДИЙ
-#  Единый файл приложения (Frontend + ML + Backend)
-# =============================================================================
-
-import os
-import datetime
-import pandas as pd
 import streamlit as st
-import joblib
+import pandas as pd
+import datetime
+from logic import FutureScoreLogic
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  НАСТРОЙКА СТРАНИЦЫ
-# ─────────────────────────────────────────────────────────────────────────────
-st.set_page_config(page_title="FutureScore | АгроСубсидии РК", page_icon="🌾", layout="wide")
+# --- КОНФИГУРАЦИЯ ---
+st.set_page_config(page_title="FutureScore РК", page_icon="🌾", layout="wide")
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  БАЗА ДАННЫХ (CSV)
-# ─────────────────────────────────────────────────────────────────────────────
-CSV_PATH = "applications.csv"
-CSV_COLUMNS = [
-    "farm_name", "bin", "region", "direction", "cows_count", "pasture_area", 
-    "mortality_rate", "requested_amount", "normative", "score", "status", "alerts"
-]
-
-def init_database():
-    if not os.path.exists(CSV_PATH):
-        pd.DataFrame(columns=CSV_COLUMNS).to_csv(CSV_PATH, index=False)
-
-init_database()
-
-# ─────────────────────────────────────────────────────────────────────────────
-#  ML ДВИЖОК (Твоя ИМБА)
-# ─────────────────────────────────────────────────────────────────────────────
+# Инициализация логики
 @st.cache_resource
-def init_ml_engine():
-    m_file = 'futurescore_model_pro.pkl'
-    a_file = 'data_pipeline_artifacts_pro.pkl'
-    if os.path.exists(m_file) and os.path.exists(a_file):
-        try:
-            model = joblib.load(m_file)
-            arts = joblib.load(a_file)
-            return model, arts, True
-        except:
-            return None, None, False
-    return None, None, False
+def get_logic():
+    return FutureScoreLogic()
 
-MODEL, ARTIFACTS, READY = init_ml_engine()
+logic = get_logic()
 
-class SmartScoring:
-    LIMITS = {
-        "mortality": {"default": 0.03, "Субсидирование в скотоводстве": 0.03},
-        "pasture": {"Акмолинская область": 8.5, "Туркестанская область": 11.0, "default": 10.0}
-    }
+# --- СТИЛИЗАЦИЯ ---
+st.markdown("""
+    <style>
+    .main { background-color: #0e1117; }
+    .stMetric { background-color: #1e293b; padding: 15px; border-radius: 10px; border: 1px solid #334155; }
+    </style>
+""", unsafe_allow_html=True)
 
-    @staticmethod
-    def calculate(data, levers):
-        if not READY:
-            return 50, ["⚠️ Демо-режим (Модели не найдены)"]
+# --- SIDEBAR: ВЫБОР РОЛИ И РЫЧАГИ ---
+st.sidebar.title("🎛 Панель управления")
+role = st.sidebar.radio("Войти как:", ["👨‍🌾 Фермер", "🏛 Аудитор МСХ"])
 
-        cols = ['region', 'Направление водства', 'Норматив', 'Причитающая сумма', 
-                'cows_count', 'pasture_area', 'mortality_rate']
-        
-        inp = data.copy()
-        for c, le in ARTIFACTS.items():
-            if c in inp:
-                val = str(inp[c])
-                inp[c] = le.transform([val])[0] if val in le.classes_ else 0
-        
-        df_inp = pd.DataFrame([inp])[cols]
-        base_score = int(MODEL.predict_proba(df_inp)[0][1] * 100)
+# Рычаги Министра (Участник №2)
+st.sidebar.divider()
+st.sidebar.subheader("📍 Приоритеты государства")
+priority_val = st.sidebar.slider("Приоритет мясного сектора (Коэфф.)", 1.0, 1.5, 1.2, 0.1)
+weights = {'priority_multiplier': priority_val}
 
-        alerts = []
-        penalty = 0
-        
-        # Проверка пастбищ (Приказ №3)
-        reg = data.get('region', 'default')
-        p_norm = SmartScoring.LIMITS["pasture"].get(reg, SmartScoring.LIMITS["pasture"]["default"])
-        current_load = data['pasture_area'] / max(1, data['cows_count'])
-        if current_load < p_norm:
-            penalty += 25
-            alerts.append(f"🚩 Перевыпас (Приказ №3). Норма: {p_norm} га/гол, Факт: {current_load:.1f}")
+# --- ЛОГИКА ПРИЛОЖЕНИЯ ---
 
-        # Проверка падежа (Приказ №2)
-        dir_name = data.get('Направление водства', 'default')
-        m_norm = SmartScoring.LIMITS["mortality"].get(dir_name, SmartScoring.LIMITS["mortality"]["default"])
-        if data['mortality_rate'] > m_norm:
-            penalty += 30
-            alerts.append(f"🚩 Падеж выше нормы (Приказ №2). Лимит: {m_norm*100}%, Факт: {data['mortality_rate']*100:.1f}%")
+if role == "👨‍🌾 Фермер":
+    st.title("👨‍🌾 Кабинет фермера: FutureScore")
+    st.info("Подайте заявку и получите мгновенный прозрачный расчет баллов.")
 
-        mult = levers.get(dir_name, 1.0)
-        final = int((base_score * mult) - penalty)
-        return max(0, min(100, final)), alerts
+    col1, col2 = st.columns([1, 1])
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  МАРШРУТИЗАЦИЯ И ИНТЕРФЕЙСЫ
-# ─────────────────────────────────────────────────────────────────────────────
-if "role" not in st.session_state:
-    st.session_state.role = None
-
-def show_role_selector():
-    st.markdown("<h1 style='text-align: center;'>🌾 Платформа FutureScore</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center;'>Выберите вашу роль для входа в систему</p>", unsafe_allow_html=True)
-    st.write("---")
-    col1, col2 = st.columns(2)
     with col1:
-        if st.button("👨‍🌾 Я — Фермер", use_container_width=True, height=60):
-            st.session_state.role = "farmer"
-            st.rerun()
-    with col2:
-        if st.button("🏛 Я — Аудитор (МСХ)", use_container_width=True, height=60):
-            st.session_state.role = "auditor_login"
-            st.rerun()
+        st.subheader("📝 Форма подачи")
+        with st.form("farmer_form"):
+            region = st.selectbox("Регион", ["область Абай", "Акмолинская область", "Туркестанская область"])
+            direction = st.selectbox("Направление", ["Субсидирование в скотоводстве", "Субсидирование мясного скотоводства"])
+            district = st.text_input("Район хозяйства", "Жарминский район")
+            
+            cows = st.number_input("Поголовье (голов)", 1, 5000, 100)
+            area = st.number_input("Площадь пастбищ (га)", 0, 50000, 800)
+            mortality = st.slider("Уровень падежа (%)", 0.0, 20.0, 1.5)
+            requested_sum = st.number_input("Запрашиваемая сумма (₸)", 100000, 100000000, 1500000)
+            
+            submit = st.form_submit_button("🚀 Рассчитать баллы")
 
-def show_farmer_cabinet():
-    st.button("⬅ Назад", on_click=lambda: st.session_state.update(role=None))
-    st.title("📝 Подача заявки на субсидию")
-    
-    with st.form("farmer_form"):
-        st.subheader("1. Основные данные")
-        farm_name = st.text_input("Название хозяйства (КХ/ТОО)")
-        bin_val = st.text_input("БИН/ИИН")
-        region = st.selectbox("Регион", ["Акмолинская область", "Туркестанская область", "Алматинская область"])
-        direction = st.selectbox("Направление субсидирования", ["Субсидирование в скотоводстве", "Субсидирование в овцеводстве"])
-        
-        st.subheader("2. Производственные показатели")
-        c1, c2 = st.columns(2)
-        with c1:
-            cows_count = st.number_input("Поголовье скота (голов)", min_value=10, value=100)
-            pasture_area = st.number_input("Площадь пастбищ (га)", min_value=0.0, value=1000.0)
-        with c2:
-            mortality_pct = st.number_input("Процент падежа за год (%)", min_value=0.0, max_value=100.0, value=1.0)
-            requested_amount = st.number_input("Запрашиваемая сумма (₸)", min_value=100000.0, value=1500000.0)
-        
-        submitted = st.form_submit_button("Проверить заявку ИИ-скорингом", type="primary")
-
-    if submitted:
-        # Подготовка данных для ML
+    if submit:
+        # Подготовка данных
         farmer_data = {
-            'region': region,
-            'Направление водства': direction,
-            'Норматив': 15000.0,  # Заглушка норматива
-            'Причитающая сумма': requested_amount,
-            'cows_count': cows_count,
-            'pasture_area': pasture_area,
-            'mortality_rate': mortality_pct / 100.0
+            "region": region,
+            "Направление водства": direction,
+            "Район хозяйства": district,
+            "cows_count": cows,
+            "pasture_area": area,
+            "mortality_rate": mortality / 100,
+            "Причитающая сумма": requested_sum
         }
-        
+
         # Расчет
-        score, alerts = SmartScoring.calculate(farmer_data, levers={})
+        res = logic.calculate_future_score(farmer_data, weights)
         
-        # Вывод результатов
-        st.divider()
-        st.header(f"Ваш FutureScore: {score} / 100")
-        
-        if score >= 70:
-            st.success("✅ Предварительно одобрено! Ваши показатели соответствуют нормам.")
-            status = "Одобрено"
-        else:
-            st.error("❌ Выявлены риски. Заявка может быть отклонена.")
-            status = "В зоне риска"
-            for alert in alerts:
-                st.warning(alert)
-                
-            # Симулятор What-If
-            st.markdown("### 🚀 Инвестиционный симулятор")
-            st.info("Посмотрите, как исправить ситуацию:")
-            sim_pasture = st.slider("Добавить площадь пастбищ (га)", min_value=int(pasture_area), max_value=int(pasture_area)+5000, value=int(pasture_area))
-            sim_data = farmer_data.copy()
-            sim_data['pasture_area'] = sim_pasture
-            sim_score, _ = SmartScoring.calculate(sim_data, levers={})
-            st.metric("Балл при новых площадях", f"{sim_score} / 100", delta=sim_score - score)
+        with col2:
+            st.subheader("📊 Результат анализа")
+            
+            # Спидометр / Метрики
+            m1, m2 = st.columns(2)
+            m1.metric("Итоговый балл", f"{res['final_score']} / 100")
+            m2.metric("Статус", res['status'])
 
-        # Сохранение в базу
-        new_row = pd.DataFrame([{
-            "farm_name": farm_name, "bin": bin_val, "region": region, "direction": direction,
-            "cows_count": cows_count, "pasture_area": pasture_area, "mortality_rate": mortality_pct/100.0,
-            "requested_amount": requested_amount, "normative": 15000.0, "score": score, 
-            "status": status, "alerts": " | ".join(alerts)
-        }])
-        df = pd.read_csv(CSV_PATH)
-        df = pd.concat([df, new_row], ignore_index=True)
-        df.to_csv(CSV_PATH, index=False)
-        st.toast("Заявка сохранена в реестр!")
+            if res['alerts']:
+                for a in res['alerts']: st.error(a)
+            else:
+                st.success("✅ Заявка соответствует всем приказам МСХ РК.")
 
-def show_auditor_login():
-    st.button("⬅ Назад", on_click=lambda: st.session_state.update(role=None))
-    st.subheader("🔐 Вход для Аудитора")
-    pwd = st.text_input("Пароль", type="password")
-    if st.button("Войти"):
-        if pwd == "123": # Простой пароль для хакатона
-            st.session_state.role = "auditor_dashboard"
-            st.rerun()
-        else:
-            st.error("Неверный пароль")
+            # SHAP Визуализация (Участник №1)
+            st.divider()
+            st.subheader("🔍 Объяснение решения ИИ (SHAP)")
+            shap_img = logic.get_shap_visual(res['df_input'])
+            st.image(shap_img, use_container_width=True)
 
-def show_auditor_dashboard():
-    st.sidebar.button("⬅ Выйти", on_click=lambda: st.session_state.update(role=None))
+    # WHAT-IF СЕКЦИЯ (Участник №3)
+    st.divider()
+    st.subheader("🚀 Инвестиционное моделирование: Как повысить балл?")
+    st.write("Используйте симулятор, чтобы понять, какие изменения в хозяйстве помогут получить субсидию.")
     
-    # РЫЧАГИ МИНИСТРА
-    st.sidebar.markdown("### 🎛️ Государственные приоритеты")
-    weight_meat = st.sidebar.slider("Приоритет: Скотоводство", 0.5, 1.5, 1.0, 0.1)
-    weight_sheep = st.sidebar.slider("Приоритет: Овцеводство", 0.5, 1.5, 1.0, 0.1)
-    current_levers = {
-        "Субсидирование в скотоводстве": weight_meat,
-        "Субсидирование в овцеводстве": weight_sheep
-    }
-
-    st.title("🛡️ Кабинет Цифрового Аудитора")
-    st.caption("Режим Слепого Одобрения (Blind Review) активирован")
+    wc1, wc2 = st.columns(2)
+    with wc1:
+        add_land = st.slider("Докупить/арендовать земли (га)", 0, 2000, 0)
+        reduce_mort = st.slider("Снизить падеж до (%)", 0.0, 5.0, 1.5)
     
-    df = pd.read_csv(CSV_PATH)
-    if df.empty:
-        st.info("Пока нет новых заявок.")
-        return
-
-    # Динамический пересчет баллов
-    st.write("### 📋 Реестр заявок")
-    display_data = []
-    
-    for _, row in df.iterrows():
-        # Собираем словарь для движка
-        r_data = {
-            'region': row['region'], 'Направление водства': row['direction'],
-            'Норматив': row['normative'], 'Причитающая сумма': row['requested_amount'],
-            'cows_count': row['cows_count'], 'pasture_area': row['pasture_area'],
-            'mortality_rate': row['mortality_rate']
+    with wc2:
+        # Сценарий изменений
+        sim_changes = {
+            'pasture_area': area + add_land,
+            'mortality_rate': reduce_mort / 100
+        }
+        # Исходные данные для симуляции те же, что из формы
+        sim_data = {
+            "region": region, "Направление водства": direction, "Район хозяйства": district,
+            "cows_count": cows, "pasture_area": area, "mortality_rate": mortality / 100,
+            "Причитающая сумма": requested_sum
         }
         
-        # ПЕРЕСЧЕТ С УЧЕТОМ РЫЧАГОВ ИЗ САЙДБАРА
-        dyn_score, dyn_alerts = SmartScoring.calculate(r_data, current_levers)
+        sim_res = logic.get_what_if_analysis(sim_data, sim_changes, weights)
         
-        display_data.append({
-            "ID заявки": f"REQ-{hash(row['bin']) % 10000}", # Слепое одобрение (Скрываем имя)
-            "Регион": row['region'],
-            "Направление": row['direction'],
-            "Сумма (₸)": row['requested_amount'],
-            "FutureScore": dyn_score,
-            "Риски (NLP)": "🔴 " + dyn_alerts[0] if dyn_alerts else "🟢 Ок"
-        })
+        st.write(f"### Новый прогноз: **{sim_res['new_score']}**")
+        st.write(f"Изменение: :green[{sim_res['delta_str']}]" if sim_res['delta'] > 0 else f"Изменение: {sim_res['delta_str']}")
+        st.info(f"Новый статус: {sim_res['new_status']}")
 
-    # Выводим таблицу
-    st.dataframe(pd.DataFrame(display_data), use_container_width=True)
+elif role == "🏛 Аудитор МСХ":
+    st.title("🏛 Цифровой аудитор: Министерство сельского хозяйства РК")
+    
+    # Blind Review Toggle (Участник №2)
+    blind_mode = st.toggle("🔒 Включить Режим Blind Review (Антикоррупция)", value=True)
+    
+    # Имитация базы данных заявок
+    mock_data = [
+        {"id": "7712", "farm": "КХ 'АгроЛидер'", "region": "область Абай", "score": 88.5, "sum": 4500000},
+        {"id": "8291", "farm": "ТОО 'Мясной Мир'", "region": "Туркестанская область", "score": 42.1, "sum": 12000000},
+        {"id": "9012", "farm": "ИП 'Степное'", "region": "Акмолинская область", "score": 75.0, "sum": 2300000}
+    ]
+    
+    df_apps = pd.DataFrame(mock_data)
+    
+    if blind_mode:
+        df_apps['farm'] = "ID_" + df_apps['id']
+        st.warning("🕵️ Режим Blind Review активен: Названия хозяйств скрыты для исключения предвзятости.")
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  РОУТЕР
-# ─────────────────────────────────────────────────────────────────────────────
-if st.session_state.role is None:
-    show_role_selector()
-elif st.session_state.role == "farmer":
-    show_farmer_cabinet()
-elif st.session_state.role == "auditor_login":
-    show_auditor_login()
-elif st.session_state.role == "auditor_dashboard":
-    show_auditor_dashboard()
+    st.subheader("📥 Поступившие заявки")
+    st.dataframe(df_apps, use_container_width=True)
+    
+    st.divider()
+    st.subheader("📈 Финансовый дашборд")
+    k1, k2, k3 = st.columns(3)
+    k1.metric("Общий бюджет", "1.2 млрд ₸")
+    k2.metric("Одобрено заявок", "485 млн ₸")
+    k3.metric("Остаток", "715 млн ₸", delta="-12%")
