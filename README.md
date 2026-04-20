@@ -74,7 +74,7 @@ streamlit run app.py
 ---
 
 ## 🔗 Ссылки
-* **Live Web App:** [FutureScore Online](https://future-score-subsidy-x6lshrlsiuq3frnn5mvdhn.streamlit.app/)
+* **Live Web App:** [FutureScore Online](https://future-score-subsidy-9phasvtqqeltaurpxhhcg5.streamlit.app/)
 * **Source Code:** [GitHub Repository](https://github.com/saylaaur/future-score-subsidy)
 
 ---
