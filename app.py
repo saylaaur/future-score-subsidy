@@ -29,24 +29,18 @@ def ensure_csv_exists():
         pd.DataFrame(columns=cols).to_csv(CSV_PATH, index=False)
 
 def load_farmer_applications() -> pd.DataFrame:
-    """Загружает реальные заявки фермеров из CSV.
-    Нормализует колонки: main.py пишет cows_count/mortality_rate/district,
-    app.py ожидает livestock/death_rate. Маппинг делается здесь.
-    """
     ensure_csv_exists()
     try:
         df = pd.read_csv(CSV_PATH)
         if df.empty:
             return pd.DataFrame()
 
-        # Маппинг колонок main.py -> app.py
         rename_map = {
             "cows_count":     "livestock",
             "mortality_rate": "death_rate",
         }
         df = df.rename(columns={k: v for k, v in rename_map.items() if k in df.columns})
 
-        # deaths вычисляем из livestock * death_rate, если колонки deaths нет
         if "deaths" not in df.columns:
             if "livestock" in df.columns and "death_rate" in df.columns:
                 df["deaths"] = (
@@ -62,7 +56,6 @@ def load_farmer_applications() -> pd.DataFrame:
 
 def update_application_status_in_csv(bin_val: str, submitted_at: str,
                                        new_status: str, reviewer: str):
-    """Обновляет статус конкретной заявки в CSV."""
     ensure_csv_exists()
     try:
         df = pd.read_csv(CSV_PATH)
@@ -76,16 +69,16 @@ def update_application_status_in_csv(bin_val: str, submitted_at: str,
     except Exception as e:
         st.error(f"Ошибка обновления CSV: {e}")
 
-# ─────────────────────────────────────────────────────────────────────────────
-#  КОНФИГУРАЦИЯ (set_page_config вынесен в main.py)
-# ─────────────────────────────────────────────────────────────────────────────
 
-MORTALITY_LIMIT  = 2.0      # % — Приказ №2
+# ─────────────────────────────────────────────────────────────────────────────
+#  КОНФИГУРАЦИЯ
+# ─────────────────────────────────────────────────────────────────────────────
+MORTALITY_LIMIT  = 2.0
 TOTAL_BUDGET     = 120_000_000
 PASSWORD         = "admin777"
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  СТИЛИ (вызываются внутри main())
+#  СТИЛИ
 # ─────────────────────────────────────────────────────────────────────────────
 _APP_CSS = """
 <style>
@@ -97,7 +90,6 @@ html, body, [class*="css"] {
     color: #1a2e0d;
 }
 
-/* Главная шапка */
 .msh-header {
     background: #2D5016;
     padding: 20px 28px;
@@ -126,7 +118,6 @@ html, body, [class*="css"] {
 .msh-header h1 { font-size: 20px; font-weight: 500; margin: 0 0 4px 0; color: #EAF3DE; }
 .msh-header p  { font-size: 12px; opacity: 0.7; margin: 0; font-family: 'Space Mono', monospace; }
 
-/* KPI карточки */
 .kpi-card {
     background: #ffffff;
     border: 1px solid #ddecd0;
@@ -145,12 +136,10 @@ html, body, [class*="css"] {
 }
 .kpi-card .kpi-sub { font-size: 11px; color: #C0DD97; }
 
-/* Строки таблицы */
 .row-danger  { background: #fff5f5 !important; border-left: 3px solid #E24B4A !important; }
 .row-warning { background: #fffbf0 !important; border-left: 3px solid #BA7517 !important; }
 .row-ok      { background: #f4faf0 !important; border-left: 3px solid #639922 !important; }
 
-/* Статус-бейджи */
 .badge {
     display: inline-block;
     padding: 3px 10px;
@@ -164,7 +153,6 @@ html, body, [class*="css"] {
 .badge-pending  { background: #FAEEDA; color: #633806; }
 .badge-blocked  { background: #FCEBEB; color: #A32D2D; }
 
-/* Блокировка */
 .blocked-banner {
     background: #FCEBEB;
     border: 1px solid #F7C1C1;
@@ -176,7 +164,6 @@ html, body, [class*="css"] {
     font-weight: 500;
 }
 
-/* Анонимный ID */
 .anon-id {
     font-family: 'Space Mono', monospace;
     background: #EAF3DE;
@@ -187,7 +174,6 @@ html, body, [class*="css"] {
     letter-spacing: 0.5px;
 }
 
-/* Приоритет-слайдер метки */
 .priority-label {
     font-size: 13px;
     font-weight: 500;
@@ -195,7 +181,6 @@ html, body, [class*="css"] {
     margin-bottom: 2px;
 }
 
-/* Карточка профиля в sidebar */
 .profile-card {
     background: #ffffff;
     border: 2px solid #3B6D11;
@@ -240,7 +225,6 @@ html, body, [class*="css"] {
     flex-shrink: 0;
 }
 
-/* Журнал аудита */
 .audit-approve { color: #27500A; font-weight: 500; }
 .audit-reject  { color: #A32D2D; font-weight: 500; }
 </style>
@@ -248,7 +232,7 @@ html, body, [class*="css"] {
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  БАЗА ДАННЫХ ПОЛЬЗОВАТЕЛЕЙ И АВТОРИЗАЦИЯ
+#  БАЗА ДАННЫХ ПОЛЬЗОВАТЕЛЕЙ
 # ─────────────────────────────────────────────────────────────────────────────
 DEPARTMENTS = [
     "Департамент субсидирования АПК",
@@ -262,13 +246,11 @@ DEPARTMENTS = [
 def hash_pwd(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
-# Инициализация БД пользователей с дефолтным аккаунтом admin
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  ТОЧКА ВХОДА
 # ─────────────────────────────────────────────────────────────────────────────
 def main():
-    # ── Применяем стили ──────────────────────────────────────────────────────
     st.markdown(_APP_CSS, unsafe_allow_html=True)
 
     if "users_db" not in st.session_state:
@@ -287,7 +269,7 @@ def main():
     if "current_user" not in st.session_state:
         st.session_state.current_user = None
 
-    # ── Экран входа / регистрации ─────────────────────────────────────────────────
+    # ── Экран входа / регистрации ──────────────────────────────────────────
     if not st.session_state.authenticated:
         col_l, col_m, col_r = st.columns([1, 1.4, 1])
         with col_m:
@@ -304,16 +286,12 @@ def main():
 
             auth_tab_login, auth_tab_reg = st.tabs(["🔑  Вход", "📝  Регистрация"])
 
-            # ── ВХОД ──
             with auth_tab_login:
                 st.write("")
-                login_username = st.text_input("Логин", placeholder="Введите логин",
-                                               key="login_user")
-                login_password = st.text_input("Пароль", type="password",
-                                               placeholder="Введите пароль", key="login_pwd")
+                login_username = st.text_input("Логин", placeholder="Введите логин", key="login_user")
+                login_password = st.text_input("Пароль", type="password", placeholder="Введите пароль", key="login_pwd")
                 st.write("")
-                if st.button("Войти в систему", type="primary",
-                             use_container_width=True, key="btn_login"):
+                if st.button("Войти в систему", type="primary", use_container_width=True, key="btn_login"):
                     users_db = st.session_state.users_db
                     if login_username in users_db:
                         if users_db[login_username]["password_hash"] == hash_pwd(login_password):
@@ -326,21 +304,15 @@ def main():
                         st.error("❌ Пользователь не найден.")
                 st.caption("🔒 Все действия инспектора журналируются в системе.")
 
-            # ── РЕГИСТРАЦИЯ ──
             with auth_tab_reg:
                 st.write("")
-                reg_login    = st.text_input("Логин *", placeholder="латиница, без пробелов",
-                                             key="reg_login")
-                reg_fullname = st.text_input("ФИО *", placeholder="Фамилия Имя Отчество",
-                                             key="reg_name")
+                reg_login    = st.text_input("Логин *", placeholder="латиница, без пробелов", key="reg_login")
+                reg_fullname = st.text_input("ФИО *", placeholder="Фамилия Имя Отчество", key="reg_name")
                 reg_dept     = st.selectbox("Департамент *", DEPARTMENTS, key="reg_dept")
-                reg_pwd      = st.text_input("Пароль *", type="password",
-                                             placeholder="Минимум 6 символов", key="reg_pwd")
-                reg_pwd2     = st.text_input("Подтвердите пароль *", type="password",
-                                             placeholder="Повторите пароль", key="reg_pwd2")
+                reg_pwd      = st.text_input("Пароль *", type="password", placeholder="Минимум 6 символов", key="reg_pwd")
+                reg_pwd2     = st.text_input("Подтвердите пароль *", type="password", placeholder="Повторите пароль", key="reg_pwd2")
                 st.write("")
-                if st.button("Зарегистрироваться", type="primary",
-                             use_container_width=True, key="btn_register"):
+                if st.button("Зарегистрироваться", type="primary", use_container_width=True, key="btn_register"):
                     errors = []
                     if not reg_login.strip():
                         errors.append("Введите логин.")
@@ -370,9 +342,9 @@ def main():
         st.stop()
 
 
-    # ─────────────────────────────────────────────────────────────────────────────
-    #  ГЕНЕРАЦИЯ ДЕМО-ДАННЫХ (имитация 'Выгрузка по выданным субсидиям 2025')
-    # ─────────────────────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
+    #  ГЕНЕРАЦИЯ ДЕМО-ДАННЫХ
+    # ─────────────────────────────────────────────────────────────────────────
     @st.cache_data
     def generate_demo_data() -> pd.DataFrame:
         random.seed(42)
@@ -407,21 +379,15 @@ def main():
         for i in range(120):
             region   = random.choice(REGIONS)
             district = random.choice(DISTRICTS[region])
-            direction = random.choices(
-                DIRECTIONS,
-                weights=[25, 30, 15, 15, 5, 10]
-            )[0]
+            direction = random.choices(DIRECTIONS, weights=[25, 30, 15, 15, 5, 10])[0]
 
-            # Поголовье и падёж
             livestock = random.randint(50, 800)
-            # ~12% хозяйств — нарушители по падежу
             if random.random() < 0.12:
                 mort_pct = round(random.uniform(2.1, 12.0), 2)
             else:
                 mort_pct = round(random.uniform(0.0, 1.9), 2)
             mort_head = int(livestock * mort_pct / 100)
 
-            # Базовая сумма субсидии
             rate_map = {
                 "Молочное скотоводство": 18000,
                 "Мясное скотоводство":   15000,
@@ -433,20 +399,15 @@ def main():
             base_rate = rate_map[direction]
             amount = livestock * base_rate
 
-            # БИН
             bin_num = "".join([str(random.randint(0, 9)) for _ in range(12)])
-
-            # Название
             prefix = random.choice(KH_PREFIXES)
             name   = f"{prefix} «{random.choice(KH_NAMES)}» ({region[:3]})"
 
-            # Исторический рейтинг района
             hist_score = round(random.uniform(0.35, 0.95), 2)
             climate    = round(random.uniform(0.15, 0.85), 2)
             is_breed   = 1 if direction == "Племенное дело" else random.randint(0, 1)
             is_sel     = 1 if is_breed else random.randint(0, 1)
 
-            # Базовый FutureScore
             base_fs = max(10, min(99, int(hist_score * 70 - climate * 30
                                            + is_breed * 15 + is_sel * 10)))
 
@@ -471,29 +432,27 @@ def main():
         return pd.DataFrame(rows)
 
 
-    # ─────────────────────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
     #  SESSION STATE
-    # ─────────────────────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
     if "df_raw" not in st.session_state:
         st.session_state.df_raw = generate_demo_data()
 
     if "statuses" not in st.session_state:
-        st.session_state.statuses = {}   # idx -> "✅ Одобрено" | "❌ Отклонено"
+        st.session_state.statuses = {}
 
     if "audit_log" not in st.session_state:
-        st.session_state.audit_log = []   # список записей журнала
+        st.session_state.audit_log = []
 
 
-    # ─────────────────────────────────────────────────────────────────────────────
-    #  ПЕРЕСЧЁТ SCORE С УЧЁТОМ ПРИОРИТЕТОВ
-    # ─────────────────────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
+    #  ПЕРЕСЧЁТ SCORE
+    # ─────────────────────────────────────────────────────────────────────────
     def compute_scores(df: pd.DataFrame, p_milk: int, p_meat: int, p_breed: int) -> pd.Series:
-        """Пересчитывает FutureScore с учётом приоритетов слайдеров."""
         scores = []
         for _, row in df.iterrows():
             s = row["base_score"]
             direction = row["Направление"]
-            # Влияние слайдеров: каждый балл приоритета = ±0.3 к итоговому score
             if "Молоч" in direction:
                 s = s + (p_milk - 50) * 0.3
             elif "Мясн" in direction:
@@ -504,24 +463,22 @@ def main():
         return pd.Series(scores, index=df.index)
 
 
-    # ─────────────────────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
     #  АНОНИМИЗАЦИЯ
-    # ─────────────────────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
     def anonymize_id(val: str, salt: str = "msh2025") -> str:
         h = hashlib.md5(f"{val}{salt}".encode()).hexdigest()[:8].upper()
         return f"ANON-{h}"
 
 
-    # ─────────────────────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
     #  SIDEBAR
-    # ─────────────────────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
     with st.sidebar:
-        # ── Профиль пользователя ──────────────────────────────────────────────────
         cur_user_data = st.session_state.users_db.get(st.session_state.current_user, {})
         full_name  = cur_user_data.get("full_name", "Инспектор")
         role       = cur_user_data.get("role", "Инспектор")
         department = cur_user_data.get("department", "МСХ РК")
-        # Инициалы для аватара
         initials = "".join([w[0].upper() for w in full_name.split()[:2]])
 
         st.markdown(f"""
@@ -549,7 +506,6 @@ def main():
 
         st.divider()
 
-        # Приоритеты
         st.markdown("### ⚖️ Приоритеты направлений")
         st.caption("Влияют на итоговый рейтинг (FutureScore) заявок")
 
@@ -559,7 +515,6 @@ def main():
 
         st.divider()
 
-        # Blind Review
         st.markdown("### 🕶 Режим проверки")
         blind_mode = st.toggle("Режим Blind Review", value=False,
                                help="Скрывает БИН и название КХ — показывает только анонимный ID")
@@ -574,7 +529,6 @@ def main():
 
         st.divider()
 
-        # Фильтры
         st.markdown("### 🔍 Фильтры")
         df_all = st.session_state.df_raw
         regions = ["Все"] + sorted(df_all["Регион"].unique().tolist())
@@ -585,17 +539,23 @@ def main():
 
         st.divider()
 
-        # Мини-статистика
         total_n = len(df_all)
         approved_n = sum(1 for v in st.session_state.statuses.values() if v == "✅ Одобрено")
         rejected_n = sum(1 for v in st.session_state.statuses.values() if v == "❌ Отклонено")
         violations_n = int((df_all["Падёж %"] > MORTALITY_LIMIT).sum())
 
+        # Считаем одобренные заявки фермеров для сайдбара
+        _f_sidebar = load_farmer_applications()
+        farmer_approved_n = 0
+        if not _f_sidebar.empty and "status" in _f_sidebar.columns:
+            farmer_approved_n = int((_f_sidebar["status"] == "approved").sum())
+
         st.markdown(f"""
         <div style="font-size:13px; line-height:2.0;">
         📋 Всего заявок: <b>{total_n}</b><br>
         🚨 Нарушений: <b style="color:#dc2626;">{violations_n}</b><br>
-        ✅ Одобрено: <b style="color:#059669;">{approved_n}</b><br>
+        ✅ Одобрено (реестр): <b style="color:#059669;">{approved_n}</b><br>
+        ✅ Одобрено (фермеры): <b style="color:#059669;">{farmer_approved_n}</b><br>
         ❌ Отклонено: <b style="color:#6b7280;">{rejected_n}</b><br>
         ⏳ Ожидают: <b>{total_n - approved_n - rejected_n}</b>
         </div>
@@ -609,9 +569,9 @@ def main():
             st.rerun()
 
 
-    # ─────────────────────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
     #  ШАПКА СТРАНИЦЫ
-    # ─────────────────────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
     st.markdown(f"""
     <div class="msh-header">
         <h1>🌾 МСХ РК — Кабинет цифрового аудитора субсидий</h1>
@@ -623,13 +583,12 @@ def main():
     """, unsafe_allow_html=True)
 
 
-    # ─────────────────────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
     #  ПЕРЕСЧЁТ ДАННЫХ
-    # ─────────────────────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
     df = st.session_state.df_raw.copy()
     df["FutureScore"] = compute_scores(df, p_milk, p_meat, p_breed)
 
-    # Применяем фильтры
     if sel_region != "Все":
         df = df[df["Регион"] == sel_region]
     if sel_dir != "Все":
@@ -637,42 +596,53 @@ def main():
     if only_violations:
         df = df[df["Падёж %"] > MORTALITY_LIMIT]
 
-    # Получаем статусы
     df["_status"] = df.index.map(lambda i: st.session_state.statuses.get(i, "⏳ На рассмотрении"))
     df["_blocked"] = df["Падёж %"] > MORTALITY_LIMIT
 
 
-    # ─────────────────────────────────────────────────────────────────────────────
-    #  ФИНАНСОВЫЕ KPI
-    # ─────────────────────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
+    #  ФИНАНСОВЫЕ KPI — учитываем заявки фермеров
+    # ─────────────────────────────────────────────────────────────────────────
+    # Сумма одобренных демо-заявок
     approved_sum = sum(
         st.session_state.df_raw.loc[i, "Причит. сумма"]
         for i, v in st.session_state.statuses.items()
         if v == "✅ Одобрено" and i in st.session_state.df_raw.index
     )
+    # + Сумма одобренных заявок фермеров из CSV
+    _farmer_df_budget = load_farmer_applications()
+    farmer_approved_sum = 0.0
+    if not _farmer_df_budget.empty and "requested_amount" in _farmer_df_budget.columns:
+        farmer_approved_sum = (
+            _farmer_df_budget[_farmer_df_budget["status"] == "approved"]["requested_amount"]
+            .apply(pd.to_numeric, errors="coerce")
+            .fillna(0)
+            .sum()
+        )
+    approved_sum += farmer_approved_sum
+
     requested_sum = df["Причит. сумма"].sum()
     balance = TOTAL_BUDGET - approved_sum
     pct_used = min(approved_sum / TOTAL_BUDGET * 100, 100) if TOTAL_BUDGET > 0 else 0
 
     k1, k2, k3, k4, k5 = st.columns(5)
-    k1.metric("💰 Общий бюджет",    f"{TOTAL_BUDGET:,.0f} ₸")
+    k1.metric("💰 Общий бюджет",       f"{TOTAL_BUDGET:,.0f} ₸")
     k2.metric("📥 Запрошено (фильтр)", f"{requested_sum:,.0f} ₸")
-    k3.metric("✅ Одобрено итого",  f"{approved_sum:,.0f} ₸",
+    k3.metric("✅ Одобрено итого",      f"{approved_sum:,.0f} ₸",
               delta=f"{pct_used:.1f}% бюджета", delta_color="inverse" if pct_used > 80 else "off")
-    k4.metric("💵 Остаток бюджета", f"{balance:,.0f} ₸",
+    k4.metric("💵 Остаток бюджета",    f"{balance:,.0f} ₸",
               delta="⚠️ Критично" if balance < TOTAL_BUDGET * 0.1 else None,
               delta_color="inverse")
-    k5.metric("🚨 Блокировок",      f"{int((st.session_state.df_raw['Падёж %'] > MORTALITY_LIMIT).sum())}",
+    k5.metric("🚨 Блокировок",          f"{int((st.session_state.df_raw['Падёж %'] > MORTALITY_LIMIT).sum())}",
               delta="Приказ №2", delta_color="inverse")
 
-    # Прогресс-бар бюджета
     st.progress(pct_used / 100, text=f"Использовано бюджета: {pct_used:.1f}%")
     st.divider()
 
 
-    # ─────────────────────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
     #  ВКЛАДКИ
-    # ─────────────────────────────────────────────────────────────────────────────
+    # ─────────────────────────────────────────────────────────────────────────
     tab_registry, tab_analytics, tab_auto, tab_farmer, tab_audit = st.tabs([
         "📋 Реестр заявок",
         "📊 Аналитика",
@@ -682,9 +652,9 @@ def main():
     ])
 
 
-    # ══════════════════════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════════════════
     #  ТАБ 1 — РЕЕСТР
-    # ══════════════════════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════════════════
     with tab_registry:
         st.subheader(f"📋 Реестр субсидий {'🕶 [BLIND REVIEW]' if blind_mode else ''}")
 
@@ -692,7 +662,6 @@ def main():
             st.info("Нет записей по выбранным фильтрам.")
             st.stop()
 
-        # Сортировка по FutureScore
         df_sorted = df.sort_values("FutureScore", ascending=False).reset_index()
 
         for _, row in df_sorted.iterrows():
@@ -704,7 +673,6 @@ def main():
             amount     = float(row["Причит. сумма"])
             direction  = row["Направление"]
 
-            # Иконка строки
             if status == "✅ Одобрено":
                 row_icon = "✅"
             elif status == "❌ Отклонено":
@@ -716,7 +684,6 @@ def main():
 
             score_icon = "🟢" if score > 70 else ("🟡" if score >= 40 else "🔴")
 
-            # Название для заголовка expander
             if blind_mode:
                 display_name = f"ID: {anonymize_id(row['БИН'])}"
             else:
@@ -729,7 +696,6 @@ def main():
                 f"{amount:,.0f} ₸  ·  {status}"
             )
 
-            # Подсветка нарушений
             if blocked:
                 st.markdown(
                     f'<div class="blocked-banner">🚨 НАРУШЕНИЕ (Приказ №2): Падёж {mort:.1f}% — '
@@ -741,7 +707,6 @@ def main():
 
                 c1, c2, c3 = st.columns([1, 1.2, 1.5])
 
-                # Данные хозяйства
                 with c1:
                     st.markdown("**📋 Данные хозяйства**")
                     if blind_mode:
@@ -758,7 +723,6 @@ def main():
                     st.write(f"💀 Падёж: **{row['Падёж (гол)']}** гол. ({mort:.1f}%)")
                     st.write(f"💰 Запрошено: **{amount:,.0f} ₸**")
 
-                # Анализ рисков
                 with c2:
                     st.markdown("**🛡 Анализ рисков**")
 
@@ -809,11 +773,9 @@ def main():
                     </div>
                     """, unsafe_allow_html=True)
 
-                    # Влияние приоритетов
                     if p_milk != 50 or p_meat != 50 or p_breed != 50:
                         st.caption(f"⚙️ Приоритеты: Молоко={p_milk} / Мясо={p_meat} / Племенное={p_breed}")
 
-                # Кнопки + объяснение
                 with c3:
                     st.markdown("**🧠 Объяснение ИИ**")
                     hist_s = float(row.get("hist_score", 0.75))
@@ -823,7 +785,6 @@ def main():
                     breed_pts = 15 if int(row.get("is_breeding", 0)) else 0
                     sel_pts   = 10 if int(row.get("is_selection", 0)) else 0
 
-                    # Приоритетная корректировка
                     corr = 0
                     if "Молоч" in direction: corr = round((p_milk - 50) * 0.3)
                     elif "Мясн" in direction: corr = round((p_meat - 50) * 0.3)
@@ -843,7 +804,6 @@ def main():
 
                     st.write("")
 
-                    # КНОПКИ РЕШЕНИЯ
                     approve_disabled = (blocked or status == "✅ Одобрено")
                     reject_disabled  = (status == "❌ Отклонено")
 
@@ -894,7 +854,6 @@ def main():
                     elif status == "❌ Отклонено":
                         st.error("❌ Заявка отклонена")
 
-        # Экспорт
         st.divider()
         export_df = df_sorted.copy()
         if blind_mode:
@@ -909,9 +868,9 @@ def main():
                            file_name="reestr_msh_audit.csv", mime="text/csv")
 
 
-    # ══════════════════════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════════════════
     #  ТАБ 2 — АНАЛИТИКА
-    # ══════════════════════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════════════════
     with tab_analytics:
         st.subheader("📊 Аналитика реестра субсидий")
 
@@ -920,7 +879,6 @@ def main():
         df_a["_status"]  = df_a.index.map(lambda i: st.session_state.statuses.get(i, "⏳ На рассмотрении"))
         df_a["_blocked"] = df_a["Падёж %"] > MORTALITY_LIMIT
 
-        # Метрики
         a1, a2, a3, a4 = st.columns(4)
         a1.metric("Хозяйств всего",   len(df_a))
         a2.metric("Общий объём",      f"{df_a['Причит. сумма'].sum():,.0f} ₸")
@@ -929,7 +887,6 @@ def main():
 
         ch1, ch2 = st.columns(2)
 
-        # График по районам
         with ch1:
             dist_sum = (
                 df_a.groupby("Район")["Причит. сумма"].sum()
@@ -948,7 +905,6 @@ def main():
             )
             st.plotly_chart(fig_bar, use_container_width=True)
 
-        # Доля по направлениям
         with ch2:
             dir_sum = df_a.groupby("Направление")["Причит. сумма"].sum().reset_index()
             fig_pie = go.Figure(go.Pie(
@@ -964,7 +920,6 @@ def main():
 
         ch3, ch4 = st.columns(2)
 
-        # Гистограмма Score
         with ch3:
             fig_hist = go.Figure(go.Histogram(
                 x=df_a["FutureScore"], nbinsx=20,
@@ -985,7 +940,6 @@ def main():
             )
             st.plotly_chart(fig_hist, use_container_width=True)
 
-        # Scatter: Score vs Сумма
         with ch4:
             colors_map = {True: "#dc2626", False: "#2563a8"}
             fig_sc = go.Figure()
@@ -994,10 +948,7 @@ def main():
                     x=grp["FutureScore"],
                     y=grp["Причит. сумма"] / 1_000_000,
                     mode="markers",
-                    marker=dict(
-                        color=colors_map[blocked_val],
-                        size=7, opacity=0.7,
-                    ),
+                    marker=dict(color=colors_map[blocked_val], size=7, opacity=0.7),
                     name="Нарушение" if blocked_val else "Норма",
                     hovertemplate="Score: %{x}<br>Сумма: %{y:.2f} млн ₸<extra></extra>",
                 ))
@@ -1011,9 +962,9 @@ def main():
             st.plotly_chart(fig_sc, use_container_width=True)
 
 
-    # ══════════════════════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════════════════
     #  ТАБ 3 — АВТО-РАСПРЕДЕЛЕНИЕ
-    # ══════════════════════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════════════════
     with tab_auto:
         st.subheader("⚡ Авто-распределение бюджета")
         st.markdown("""
@@ -1028,19 +979,14 @@ def main():
             lambda i: st.session_state.statuses.get(i, "⏳ На рассмотрении")
         )
 
-        # Кандидаты: не рассмотрены, не заблокированы
         candidates = df_auto[
             (~df_auto["_blocked"]) &
             (df_auto["_status"] == "⏳ На рассмотрении")
         ].sort_values("FutureScore", ascending=False)
 
-        current_balance = TOTAL_BUDGET - sum(
-            df_auto.loc[i, "Причит. сумма"]
-            for i, v in st.session_state.statuses.items()
-            if v == "✅ Одобрено" and i in df_auto.index
-        )
+        # Остаток бюджета с учётом заявок фермеров
+        current_balance = TOTAL_BUDGET - approved_sum
 
-        # Предпросмотр плана
         plan_rows, plan_total = [], 0.0
         for idx, row in candidates.iterrows():
             amt = float(row["Причит. сумма"])
@@ -1086,7 +1032,6 @@ def main():
         else:
             st.warning("Нет подходящих кандидатов — все заявки уже рассмотрены или бюджет исчерпан.")
 
-        # Нарушители — отдельный список
         blocked_list = df_auto[df_auto["_blocked"] & (df_auto["_status"] == "⏳ На рассмотрении")]
         if not blocked_list.empty:
             st.divider()
@@ -1104,9 +1049,9 @@ def main():
             )
 
 
-    # ══════════════════════════════════════════════════════════════════════════════
-    #  ТАБ 4 — ЗАЯВКИ ФЕРМЕРОВ (из общего CSV)
-    # ══════════════════════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════════════════
+    #  ТАБ 4 — ЗАЯВКИ ФЕРМЕРОВ (ИСПРАВЛЕННЫЙ)
+    # ══════════════════════════════════════════════════════════════════════════
     with tab_farmer:
         st.subheader("🌾 Заявки от фермеров")
         st.caption(
@@ -1141,74 +1086,78 @@ def main():
 
             st.divider()
 
-            for _, frow in farmer_df.iterrows():
-                bin_val      = str(frow.get("bin", ""))
-                submitted_at = str(frow.get("submitted_at", ""))
-                farm_name    = str(frow.get("farm_name", "—"))
-                region       = str(frow.get("region", "—"))
-                status_val   = str(frow.get("status", "pending"))
+            # ── Разделяем на pending и решённые ──────────────────────────────
+            pending_farmer_df = farmer_df[farmer_df["status"] == "pending"].copy()
+            decided_farmer_df = farmer_df[farmer_df["status"].isin(["approved", "rejected"])].copy()
 
-                def _safe_int(val, default=0):
-                    try:
-                        return int(float(str(val))) if str(val) not in ("", "nan", "None") else default
-                    except (ValueError, TypeError):
-                        return default
+            # ── СЕКЦИЯ: ожидают решения ───────────────────────────────────────
+            if pending_farmer_df.empty:
+                st.info("✅ Все заявки рассмотрены.")
+            else:
+                st.markdown(f"#### ⏳ Ожидают решения ({len(pending_farmer_df)})")
 
-                def _safe_float(val, default=0.0):
-                    try:
-                        return float(str(val)) if str(val) not in ("", "nan", "None") else default
-                    except (ValueError, TypeError):
-                        return default
+                for _, frow in pending_farmer_df.iterrows():
+                    bin_val      = str(frow.get("bin", ""))
+                    submitted_at = str(frow.get("submitted_at", ""))
+                    farm_name    = str(frow.get("farm_name", "—"))
+                    region       = str(frow.get("region", "—"))
+                    status_val   = str(frow.get("status", "pending"))
 
-                score_val    = _safe_int(frow.get("score", 0))
-                amount_val   = _safe_float(frow.get("requested_amount", 0))
-                livestock_v  = _safe_int(frow.get("livestock", frow.get("cows_count", 0)))
-                deaths_v     = _safe_int(frow.get("deaths", 0))
-                hectares_v   = _safe_float(frow.get("hectares", 0.0))
-                iin_v        = str(frow.get("iin", "—")) if str(frow.get("iin", "")) not in ("", "nan", "None") else "—"
-                email_v      = str(frow.get("email", "—")) if str(frow.get("email", "")) not in ("", "nan", "None") else "—"
-                phone_v      = str(frow.get("phone", "—")) if str(frow.get("phone", "")) not in ("", "nan", "None") else "—"
+                    def _safe_int(val, default=0):
+                        try:
+                            return int(float(str(val))) if str(val) not in ("", "nan", "None") else default
+                        except (ValueError, TypeError):
+                            return default
 
-                status_map = {
-                    "pending":  "⏳ На рассмотрении",
-                    "approved": "✅ Одобрено",
-                    "rejected": "❌ Отклонено",
-                }
-                status_label = status_map.get(status_val, status_val)
-                score_icon   = "🟢" if score_val > 65 else ("🟡" if score_val >= 40 else "🔴")
+                    def _safe_float(val, default=0.0):
+                        try:
+                            return float(str(val)) if str(val) not in ("", "nan", "None") else default
+                        except (ValueError, TypeError):
+                            return default
 
-                expander_label = (
-                    f"{farm_name}  ·  БИН: {bin_val}  ·  {region}  ·  "
-                    f"{score_icon} Балл: {score_val}  ·  {amount_val:,.0f} ₸  ·  {status_label}"
-                )
+                    score_val    = _safe_int(frow.get("score", 0))
+                    amount_val   = _safe_float(frow.get("requested_amount", 0))
+                    livestock_v  = _safe_int(frow.get("livestock", frow.get("cows_count", 0)))
+                    deaths_v     = _safe_int(frow.get("deaths", 0))
+                    hectares_v   = _safe_float(frow.get("hectares", 0.0))
+                    iin_v        = str(frow.get("iin", "—")) if str(frow.get("iin", "")) not in ("", "nan", "None") else "—"
+                    email_v      = str(frow.get("email", "—")) if str(frow.get("email", "")) not in ("", "nan", "None") else "—"
+                    phone_v      = str(frow.get("phone", "—")) if str(frow.get("phone", "")) not in ("", "nan", "None") else "—"
 
-                with st.expander(expander_label, expanded=(status_val == "pending")):
-                    d1, d2, d3 = st.columns([1, 1, 1.2])
+                    score_icon   = "🟢" if score_val > 65 else ("🟡" if score_val >= 40 else "🔴")
 
-                    with d1:
-                        st.markdown("**📋 Данные хозяйства**")
-                        st.write(f"🏢 Хозяйство: **{farm_name}**")
-                        st.write(f"🔢 БИН: `{bin_val}`")
-                        st.write(f"🪪 ИИН: `{iin_v}`")
-                        st.write(f"📍 Регион: {region}")
-                        st.write(f"📧 Email: {email_v}")
-                        st.write(f"📞 Телефон: {phone_v}")
-                        st.write(f"🐄 Поголовье: **{livestock_v}** гол.")
-                        st.write(f"💀 Падёж: **{deaths_v}** гол.")
-                        if hectares_v > 0:
-                            st.write(f"🌾 Площадь угодий: **{hectares_v:.1f}** га")
-                        submitted_str = submitted_at[:16].replace("T", " ")
-                        st.write(f"📅 Подано: {submitted_str}")
+                    expander_label = (
+                        f"⏳  {farm_name}  ·  БИН: {bin_val}  ·  {region}  ·  "
+                        f"{score_icon} Балл: {score_val}  ·  {amount_val:,.0f} ₸"
+                    )
 
-                    with d2:
-                        st.markdown("**📊 Скоринговый балл**")
-                        css_color = "#059669" if score_val > 65 else ("#d97706" if score_val >= 40 else "#dc2626")
-                        score_label_text = (
-                            "Высокий — рекомендуется одобрить" if score_val > 65
-                            else ("Средний — требует проверки" if score_val >= 40
-                                  else "Низкий — рекомендуется отклонить")
-                        )
-                        st.markdown(f"""
+                    with st.expander(expander_label, expanded=True):
+                        d1, d2, d3 = st.columns([1, 1, 1.2])
+
+                        with d1:
+                            st.markdown("**📋 Данные хозяйства**")
+                            st.write(f"🏢 Хозяйство: **{farm_name}**")
+                            st.write(f"🔢 БИН: `{bin_val}`")
+                            st.write(f"🪪 ИИН: `{iin_v}`")
+                            st.write(f"📍 Регион: {region}")
+                            st.write(f"📧 Email: {email_v}")
+                            st.write(f"📞 Телефон: {phone_v}")
+                            st.write(f"🐄 Поголовье: **{livestock_v}** гол.")
+                            st.write(f"💀 Падёж: **{deaths_v}** гол.")
+                            if hectares_v > 0:
+                                st.write(f"🌾 Площадь угодий: **{hectares_v:.1f}** га")
+                            submitted_str = submitted_at[:16].replace("T", " ")
+                            st.write(f"📅 Подано: {submitted_str}")
+
+                        with d2:
+                            st.markdown("**📊 Скоринговый балл**")
+                            css_color = "#059669" if score_val > 65 else ("#d97706" if score_val >= 40 else "#dc2626")
+                            score_label_text = (
+                                "Высокий — рекомендуется одобрить" if score_val > 65
+                                else ("Средний — требует проверки" if score_val >= 40
+                                      else "Низкий — рекомендуется отклонить")
+                            )
+                            st.markdown(f"""
 <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;
             padding:14px 18px;text-align:center;">
     <div style="font-size:36px;font-weight:700;color:{css_color};
@@ -1222,85 +1171,119 @@ def main():
 </div>
 """, unsafe_allow_html=True)
 
-                    with d3:
-                        st.markdown("**✅ Решение аудитора**")
-                        already_decided = status_val in ("approved", "rejected")
+                        with d3:
+                            st.markdown("**✅ Решение аудитора**")
 
-                        b_a, b_r = st.columns(2)
-                        with b_a:
-                            if st.button("✅ Одобрить",
-                                         key=f"f_app_{bin_val}_{submitted_at}",
-                                         disabled=already_decided,
-                                         type="primary" if not already_decided else "secondary",
-                                         use_container_width=True):
-                                update_application_status_in_csv(
-                                    bin_val, submitted_at, "approved", full_name
-                                )
-                                # Синхронизация db_apps фермера в той же сессии
-                                for _a in st.session_state.get("db_apps", []):
-                                    if str(_a.get("bin")) == bin_val and str(_a.get("submitted_at")) == submitted_at:
-                                        _a["status"] = "approved"
-                                        _a["reviewed_by"] = full_name
-                                        _a["reviewed_at"] = __import__("datetime").datetime.now().isoformat()
-                                st.session_state.audit_log.append({
-                                    "Время":       datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
-                                    "Инспектор":   full_name,
-                                    "Логин":       st.session_state.current_user,
-                                    "Название КХ": farm_name,
-                                    "БИН":         bin_val,
-                                    "Решение":     "✅ Одобрено (фермер)",
-                                    "Сумма (₸)":   amount_val,
-                                    "Направление": "Из кабинета фермера",
-                                    "Регион":      region,
-                                })
-                                st.success("✅ Одобрено! Фермер увидит статус в своём кабинете.")
-                                st.rerun()
-                        with b_r:
-                            if st.button("❌ Отклонить",
-                                         key=f"f_rej_{bin_val}_{submitted_at}",
-                                         disabled=already_decided,
-                                         use_container_width=True):
-                                update_application_status_in_csv(
-                                    bin_val, submitted_at, "rejected", full_name
-                                )
-                                # Синхронизация db_apps фермера в той же сессии
-                                for _a in st.session_state.get("db_apps", []):
-                                    if str(_a.get("bin")) == bin_val and str(_a.get("submitted_at")) == submitted_at:
-                                        _a["status"] = "rejected"
-                                        _a["reviewed_by"] = full_name
-                                        _a["reviewed_at"] = __import__("datetime").datetime.now().isoformat()
-                                st.session_state.audit_log.append({
-                                    "Время":       datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
-                                    "Инспектор":   full_name,
-                                    "Логин":       st.session_state.current_user,
-                                    "Название КХ": farm_name,
-                                    "БИН":         bin_val,
-                                    "Решение":     "❌ Отклонено (фермер)",
-                                    "Сумма (₸)":   amount_val,
-                                    "Направление": "Из кабинета фермера",
-                                    "Регион":      region,
-                                })
-                                st.error("❌ Отклонено. Фермер увидит статус в своём кабинете.")
-                                st.rerun()
+                            b_a, b_r = st.columns(2)
+                            with b_a:
+                                if st.button("✅ Одобрить",
+                                             key=f"f_app_{bin_val}_{submitted_at}",
+                                             type="primary",
+                                             use_container_width=True):
+                                    update_application_status_in_csv(
+                                        bin_val, submitted_at, "approved", full_name
+                                    )
+                                    for _a in st.session_state.get("db_apps", []):
+                                        if str(_a.get("bin")) == bin_val and str(_a.get("submitted_at")) == submitted_at:
+                                            _a["status"] = "approved"
+                                            _a["reviewed_by"] = full_name
+                                            _a["reviewed_at"] = datetime.datetime.now().isoformat()
+                                    # Добавляем в журнал аудита
+                                    st.session_state.audit_log.append({
+                                        "Время":       datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+                                        "Инспектор":   full_name,
+                                        "Логин":       st.session_state.current_user,
+                                        "Название КХ": farm_name,
+                                        "БИН":         bin_val,
+                                        "Решение":     "✅ Одобрено",
+                                        "Сумма (₸)":   amount_val,
+                                        "Направление": "Из кабинета фермера",
+                                        "Регион":      region,
+                                    })
+                                    st.success("✅ Одобрено! Фермер увидит статус в своём кабинете.")
+                                    st.rerun()
 
-                        if status_val == "approved":
-                            st.success("✅ Заявка одобрена")
-                            rb = str(frow.get("reviewed_by", ""))
-                            ra = str(frow.get("reviewed_at", ""))[:16].replace("T", " ")
-                            if rb and rb != "nan":
-                                st.caption(f"Инспектор: {rb} · {ra}")
-                        elif status_val == "rejected":
-                            st.error("❌ Заявка отклонена")
-                            rb = str(frow.get("reviewed_by", ""))
-                            ra = str(frow.get("reviewed_at", ""))[:16].replace("T", " ")
-                            if rb and rb != "nan":
-                                st.caption(f"Инспектор: {rb} · {ra}")
-                        else:
+                            with b_r:
+                                if st.button("❌ Отклонить",
+                                             key=f"f_rej_{bin_val}_{submitted_at}",
+                                             use_container_width=True):
+                                    update_application_status_in_csv(
+                                        bin_val, submitted_at, "rejected", full_name
+                                    )
+                                    for _a in st.session_state.get("db_apps", []):
+                                        if str(_a.get("bin")) == bin_val and str(_a.get("submitted_at")) == submitted_at:
+                                            _a["status"] = "rejected"
+                                            _a["reviewed_by"] = full_name
+                                            _a["reviewed_at"] = datetime.datetime.now().isoformat()
+                                    # Добавляем в журнал аудита
+                                    st.session_state.audit_log.append({
+                                        "Время":       datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+                                        "Инспектор":   full_name,
+                                        "Логин":       st.session_state.current_user,
+                                        "Название КХ": farm_name,
+                                        "БИН":         bin_val,
+                                        "Решение":     "❌ Отклонено",
+                                        "Сумма (₸)":   amount_val,
+                                        "Направление": "Из кабинета фермера",
+                                        "Регион":      region,
+                                    })
+                                    st.error("❌ Отклонено. Фермер увидит статус в своём кабинете.")
+                                    st.rerun()
+
                             st.warning("⏳ Ожидает решения")
 
-    # ══════════════════════════════════════════════════════════════════════════════
+            # ── СЕКЦИЯ: уже рассмотренные (свёрнутая) ─────────────────────────
+            if not decided_farmer_df.empty:
+                st.divider()
+                with st.expander(f"📁 Уже рассмотренные заявки ({len(decided_farmer_df)})", expanded=False):
+                    for _, frow in decided_farmer_df.iterrows():
+                        status_val = str(frow.get("status", ""))
+                        icon       = "✅" if status_val == "approved" else "❌"
+                        farm_name  = str(frow.get("farm_name", "—"))
+                        bin_val    = str(frow.get("bin", ""))
+                        region     = str(frow.get("region", "—"))
+                        submitted_at = str(frow.get("submitted_at", ""))
+
+                        try:
+                            amount_val = float(str(frow.get("requested_amount", 0)))
+                        except (ValueError, TypeError):
+                            amount_val = 0.0
+
+                        rb = str(frow.get("reviewed_by", ""))
+                        ra = str(frow.get("reviewed_at", ""))[:16].replace("T", " ")
+                        score_val = 0
+                        try:
+                            score_val = int(float(str(frow.get("score", 0))))
+                        except (ValueError, TypeError):
+                            pass
+
+                        status_label = "Одобрено" if status_val == "approved" else "Отклонено"
+                        status_color = "#059669" if status_val == "approved" else "#dc2626"
+                        status_bg    = "#d1fae5" if status_val == "approved" else "#fee2e2"
+
+                        st.markdown(f"""
+                        <div style="display:flex;align-items:center;gap:12px;
+                                    padding:10px 14px;border-radius:8px;
+                                    background:{status_bg};margin-bottom:6px;
+                                    border-left:4px solid {status_color};">
+                            <span style="font-size:18px;">{icon}</span>
+                            <div style="flex:1;">
+                                <div style="font-weight:600;font-size:13px;">{farm_name}</div>
+                                <div style="font-size:12px;color:#64748b;">
+                                    БИН: {bin_val} · {region} · Балл: {score_val} · {amount_val:,.0f} ₸
+                                </div>
+                            </div>
+                            <div style="text-align:right;font-size:11px;color:{status_color};font-weight:500;">
+                                {status_label}<br>
+                                <span style="color:#94a3b8;font-weight:400;">{rb} · {ra}</span>
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+
+    # ══════════════════════════════════════════════════════════════════════════
     #  ТАБ 5 — ЖУРНАЛ АУДИТА
-    # ══════════════════════════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════════════════
     with tab_audit:
         st.subheader("📜 Журнал аудита решений")
         st.caption(
@@ -1322,12 +1305,11 @@ def main():
             </div>
             """, unsafe_allow_html=True)
         else:
-            log_df = pd.DataFrame(log[::-1])  # последние — вверху
+            log_df = pd.DataFrame(log[::-1])
 
-            # Сводные метрики журнала
             jm1, jm2, jm3, jm4 = st.columns(4)
-            approved_log = [r for r in log if r["Решение"] == "✅ Одобрено"]
-            rejected_log = [r for r in log if r["Решение"] == "❌ Отклонено"]
+            approved_log = [r for r in log if "Одобрено" in r["Решение"]]
+            rejected_log = [r for r in log if "Отклонено" in r["Решение"]]
             unique_inspectors = len({r["Логин"] for r in log})
 
             jm1.metric("Всего решений",  len(log))
@@ -1339,7 +1321,6 @@ def main():
 
             st.divider()
 
-            # Фильтры журнала
             jf1, jf2 = st.columns(2)
             with jf1:
                 filter_decision = st.selectbox(
@@ -1357,7 +1338,7 @@ def main():
 
             filtered_log = log[::-1]
             if filter_decision != "Все решения":
-                filtered_log = [r for r in filtered_log if r["Решение"] == filter_decision]
+                filtered_log = [r for r in filtered_log if filter_decision in r["Решение"]]
             if filter_inspector != "Все инспекторы":
                 filtered_log = [r for r in filtered_log if r["Инспектор"] == filter_inspector]
 
@@ -1385,7 +1366,6 @@ def main():
                     height=min(600, 56 + len(filtered_log) * 35),
                 )
 
-                # Экспорт журнала
                 st.divider()
                 ec1, ec2 = st.columns([1, 3])
                 with ec1:
