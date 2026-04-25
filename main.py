@@ -389,7 +389,7 @@ with st.sidebar:
     <div style="font-family:'DM Sans',sans-serif;font-size:17px;font-weight:500;
                 color:#2D5016;letter-spacing:-0.3px;">АгроСубсидия</div>
     <div style="font-size:10px;color:#97C459;letter-spacing:1.5px;margin-top:2px;
-                font-family:'Space Mono',monospace;">МСХ РК · DECENTRATHON 5.0</div>
+                font-family:'Space Mono',monospace;"></div>
 </div>
 """, unsafe_allow_html=True)
 
